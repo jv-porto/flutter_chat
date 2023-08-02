@@ -30,6 +30,10 @@ def read_all_available_users(session: Session) -> list[models.User]:
 
 
 def update_user(session: Session, username: str, update_dict: dict) -> models.User | HTTPException:
+    from auth import get_password_hash
+    if 'password' in update_dict:
+        update_dict['password'] = get_password_hash(update_dict['password'])
+    
     update_dict['last_updated'] = datetime.now()
 
     user_update = session.query(models.User).filter_by(username=username).update(update_dict)
