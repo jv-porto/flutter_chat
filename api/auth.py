@@ -42,7 +42,7 @@ def verify_password(plain_password, hashed_password) -> bool:
 
 
 def authenticate_user(username: str, password: str, session = next(get_session())) -> models.User | bool:
-    user = crud.user.read_user(session=session, username=username)
+    user = session.query(models.User).get(username)
     if not user:
         return False
     
@@ -80,9 +80,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(data={'sub': user.username}, expires_delta=access_token_expires)
     except Exception as e:
-        print(e)
         logging.error(e)
-        raise e
 
     return {'access_token': access_token, 'token_type': 'bearer'}
 
