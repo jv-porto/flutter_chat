@@ -1,5 +1,6 @@
 # importing libraries and functions
 import os
+import logging
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 from typing import Annotated
@@ -67,16 +68,21 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 @router.post('/auth')
 async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> dict:
-    user = authenticate_user(username=form_data.username, password=form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail='Incorrent username and password',
-            headers={'WWW-Authenticate': 'Bearer'},
-        )
-    
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(data={'sub': user.username}, expires_delta=access_token_expires)
+    try:
+        user = authenticate_user(username=form_data.username, password=form_data.password)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail='Incorrent username and password',
+                headers={'WWW-Authenticate': 'Bearer'},
+            )
+        
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(data={'sub': user.username}, expires_delta=access_token_expires)
+    except Exception as e:
+        print(e)
+        logging.error(e)
+        raise e
 
     return {'access_token': access_token, 'token_type': 'bearer'}
 
