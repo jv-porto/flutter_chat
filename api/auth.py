@@ -1,136 +1,136 @@
 # importing libraries and functions
 import os
-import logging
-from dotenv import load_dotenv
+import jwt
 from datetime import datetime, timedelta
-from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import JWTError, jwt
+from fastapi import HTTPException, Security, Depends, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-import models, schemas
 import crud.user
 from db import get_session
 
+db_session = Depends(get_session)
 
-# loading environment variables
+from dotenv import load_dotenv
 load_dotenv()
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 ALGORITHM = os.getenv('ALGORITHM')
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES'))
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv('REFRESH_TOKEN_EXPIRE_DAYS'))
 
 
-# instantiating the router
-router = APIRouter()
 
+# implementing auth
+class TokenTypeError(Exception):
+    pass
 
-# auth
-pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
+class AuthHandler():
+    security = HTTPBearer()
+    pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl='auth')
-
-############### TRANSFORM PASSWORD ###############
-def get_password_hash(password) -> str:
-    return pwd_context.hash(password)
-
-##### AUTH ROUTE #####
-def verify_password(plain_password, hashed_password) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def authenticate_user(username: str, password: str, session = next(get_session())) -> models.User | bool:
-    user = session.query(models.User).get(username)
-    if not user:
-        return False
     
-    if not verify_password(password, user.password):
-        return False
-    
-    return user
+    ############### SECURE PASSWORD ###############
+    def get_password_hash(self, password):
+        return self.pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
-    to_encode = data.copy()
-
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    
-    to_encode.update({'exp': expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-    return encoded_jwt
+    def verify_password(self, plain_password, hashed_password):
+        return self.pwd_context.verify(plain_password, hashed_password)
 
 
-@router.post('/auth')
-async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> dict:
-    try:
-        user = authenticate_user(username=form_data.username, password=form_data.password)
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail='Incorrent username and password',
-                headers={'WWW-Authenticate': 'Bearer'},
-            )
-        
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(data={'sub': user.username}, expires_delta=access_token_expires)
-    except Exception as e:
-        logging.error(e)
-
-    return {'access_token': access_token, 'token_type': 'bearer'}
-
-
-############### AUTHENTICATE USER ON ROUTE ###############
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)], session = next(get_session())) -> models.User:
-    def credentials_exception(error, message: str = 'Could not validate credentials.'):
-        if error:
-            message += ' ' + str(error)
-        
-        return HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=message,
-            headers={'WWW-Authenticate': 'Bearer'},
+    def encode_token(self, username, type):
+        payload = dict(
+            iat = datetime.utcnow(),
+            iss = username,
+            sub = type,
         )
+        to_encode = payload.copy()
 
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get('sub')
+        if type == 'access_token':
+            to_encode.update({'exp': to_encode['iat'] + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)})
+        else:
+            to_encode.update({'exp': to_encode['iat'] + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)})
 
-        if username is None:
-            raise credentials_exception()
+        return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+    ############### LOG IN (GET USER CREDENTIALS) ###############
+    def encode_login_token(self, username):
+        access_token = self.encode_token(username, 'access_token')
+        refresh_token = self.encode_token(username, 'refresh_token')
+
+        login_token = dict(
+            access_token=f'{access_token}',
+            refresh_token=f'{refresh_token}'
+        )
+        return login_token
+
+
+    def encode_update_token(self, username):
+        access_token = self.encode_token(username, 'access_token')
+
+        update_token = dict(
+            access_token=f'{access_token}'
+        ) 
+        return update_token
+
+
+    def decode_access_token(self, token):
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+            if payload['sub'] != 'access_token':
+                raise TokenTypeError()
+            
+            return payload['iss']
         
-    except JWTError as e:
-        raise credentials_exception(error=e)
-    
-    user = crud.user.read_user(session=session, username=username)
-    if user is None:
-        raise credentials_exception()
-    
-    return user
+        except TokenTypeError:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token.')
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Sinature has expired.')
+        except jwt.InvalidTokenError:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token.')
+        except:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Authentication error. Please try again later.')
 
 
-async def auth_user_on_route(auth: Annotated[str, Depends(oauth2_scheme)]):
-    return await get_current_user(auth)
+    def decode_refresh_token(self, token):
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+            if payload['sub'] != 'refresh_token':
+                raise TokenTypeError()
+            
+            return payload['iss']
+        
+        except TokenTypeError:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token.')
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Sinature has expired.')
+        except jwt.InvalidTokenError:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token.')
+        except:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Authentication error. Please try again later.')
 
 
-##### GET CURRENT USER ROUTE #####
-async def get_current_active_user(current_user: Annotated[models.User, Depends(get_current_user)]) -> models.User:
-    if not current_user.is_enabled:
-        raise HTTPException(status_code=400, detail='Inactive user.')
-    
-    return current_user
+    ############### AUTHENTICATE USER ###############
+    def auth_access_wrapper(self, auth: HTTPAuthorizationCredentials = Security(security), session: Session = db_session):
+        username = self.decode_access_token(auth.credentials)
+
+        if username == None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Unauthorized.')
+        
+        user = crud.user.read_user(session=session, username=username)
+        
+        return user
 
 
-@router.get('/users/me', response_model=schemas.User)
-async def read_users_me(current_user: Annotated[models.User, Depends(get_current_active_user)]) -> models.User:
-    return current_user
+    ############### UPDATE USER CREDENTIALS ###############
+    def auth_refresh_wrapper(self, auth: HTTPAuthorizationCredentials = Security(security)):
+        username = self.decode_refresh_token(auth.credentials)
 
-
-@router.get('/users/me/items')
-async def read_own_items(current_user: Annotated[models.User, Depends(get_current_active_user)]) -> list:
-    return [{'item_id': 'Foo', 'owner': current_user.username}]
+        updated_credentials = self.encode_update_token(username)
+        
+        return updated_credentials

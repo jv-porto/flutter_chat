@@ -24,11 +24,12 @@ class User(Base):
     chat_messages = relationship('ChatMessage', back_populates='user', lazy='joined')
 
     def __init__(self, username: str, email: str, password: str, first_name: str, last_name: str, image_url: str | None = None):
-        from auth import get_password_hash
-
+        from auth import AuthHandler
+        auth_handler = AuthHandler()
+        
         self.username = username
         self.email = email
-        self.password = get_password_hash(password)
+        self.password = auth_handler.get_password_hash(password)
         self.first_name = first_name
         self.last_name = last_name
         self.image_url = image_url
