@@ -23,9 +23,6 @@ REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv('REFRESH_TOKEN_EXPIRE_DAYS'))
 
 
 # implementing auth
-class TokenTypeError(Exception):
-    pass
-
 class AuthHandler():
     security = HTTPBearer()
     pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
@@ -82,14 +79,12 @@ class AuthHandler():
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
             if payload['sub'] != 'access_token':
-                raise TokenTypeError()
+                raise jwt.InvalidTokenError()
             
             return payload['iss']
         
-        except TokenTypeError:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token.')
         except jwt.ExpiredSignatureError:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Sinature has expired.')
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Signature has expired.')
         except jwt.InvalidTokenError:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token.')
         except:
@@ -101,14 +96,12 @@ class AuthHandler():
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
             if payload['sub'] != 'refresh_token':
-                raise TokenTypeError()
+                raise jwt.InvalidTokenError()
             
             return payload['iss']
         
-        except TokenTypeError:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token.')
         except jwt.ExpiredSignatureError:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Sinature has expired.')
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Signature has expired.')
         except jwt.InvalidTokenError:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid token.')
         except:
