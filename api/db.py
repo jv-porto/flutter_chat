@@ -39,8 +39,8 @@ def migrate_db(session: Session = next(get_session())):
 
 def drop_db(session: Session = next(get_session())):
     query = '''
-        DROP TABLE "chat_message";
-        DROP TABLE "user";
+        DROP TABLE "chat_message" CASCADE;
+        DROP TABLE "user" CASCADE;
     '''
     session.execute(text(query))
     session.commit()
@@ -48,60 +48,85 @@ def drop_db(session: Session = next(get_session())):
 
 # populating the DB
 def populate_db(session: Session = next(get_session())):
-    users = [
-        {
-            'username': '1',
-            'email': '1@1.com',
-            'password': 'teste1',
-            'first_name': '1',
-            'last_name': '1',
-            'image_url': '1.com',
-        },
-        {
-            'username': '2',
-            'email': '2@2.com',
-            'password': 'teste2',
-            'first_name': '2',
-            'last_name': '2',
-            'image_url': '2.com',
-        },
-        {
-            'username': '3',
-            'email': '3@3.com',
-            'password': 'teste3',
-            'first_name': '3',
-            'last_name': '3',
-            'image_url': '3.com',
-        },
-    ]
+    user = models.User(
+        username='jvporto',
+        email='joaovictor.porto@hotmail.com',
+        password='teste',
+        first_name='João Victor',
+        last_name='Porto',
+    )
 
     if not session.query(models.User).count():
-        for user in users:
-            user_orm = models.User(**user)
-            session.add(user_orm)
+        session.add(user)
         session.commit()
     
     chat_messages = [
         {
-            'text': '11111',
-            'user_username': '1',
-        },
-        {
-            'text': '222',
-            'user_username': '2',
-        },
-        {
-            'text': '3!!!!!',
-            'user_username': '3',
-        },
-        {
-            'text': '33333',
-            'user_username': '3',
-        },
+            'user_username': 'jvporto',
+            'text': f'{i}',
+        } for i in range(1, 3)
     ]
-        
+
     if not session.query(models.ChatMessage).count():
         for chat_message in chat_messages:
             chat_message_orm = models.ChatMessage(**chat_message)
             session.add(chat_message_orm)
         session.commit()
+
+    # users = [
+    #     {
+    #         'username': '1',
+    #         'email': '1@1.com',
+    #         'password': 'teste1',
+    #         'first_name': '1',
+    #         'last_name': '1',
+    #         'image_url': '1.com',
+    #     },
+    #     {
+    #         'username': '2',
+    #         'email': '2@2.com',
+    #         'password': 'teste2',
+    #         'first_name': '2',
+    #         'last_name': '2',
+    #         'image_url': '2.com',
+    #     },
+    #     {
+    #         'username': '3',
+    #         'email': '3@3.com',
+    #         'password': 'teste3',
+    #         'first_name': '3',
+    #         'last_name': '3',
+    #         'image_url': '3.com',
+    #     },
+    # ]
+
+    # if not session.query(models.User).count():
+    #     for user in users:
+    #         user_orm = models.User(**user)
+    #         session.add(user_orm)
+    #     session.commit()
+    
+    # chat_messages = [
+    #     {
+    #         'text': '11111',
+    #         'user_username': '1',
+    #     },
+    #     {
+    #         'text': '222',
+    #         'user_username': '2',
+    #     },
+    #     {
+    #         'text': '3!!!!!',
+    #         'user_username': '3',
+    #     },
+    #     {
+    #         'text': '33333',
+    #         'user_username': '3',
+    #     },
+    # ]
+        
+    # if not session.query(models.ChatMessage).count():
+    #     for chat_message in chat_messages:
+    #         chat_message_orm = models.ChatMessage(**chat_message)
+    #         session.add(chat_message_orm)
+    #     session.commit()

@@ -116,13 +116,28 @@ class AuthHandler():
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Unauthorized.')
         
         user = crud.user.read_user(session=session, username=username)
+
+        if user == None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='User not found.')
+        elif not user.is_enabled:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User is currently unenabled.')
         
         return user
 
 
     ############### UPDATE USER CREDENTIALS ###############
-    def auth_refresh_wrapper(self, auth: HTTPAuthorizationCredentials = Security(security)):
+    def auth_refresh_wrapper(self, auth: HTTPAuthorizationCredentials = Security(security), session: Session = db_session):
         username = self.decode_refresh_token(auth.credentials)
+
+        if username == None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Unauthorized.')
+        
+        user = crud.user.read_user(session=session, username=username)
+
+        if user == None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='User not found.')
+        elif not user.is_enabled:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='User is currently unenabled.')
 
         updated_credentials = self.encode_update_token(username)
         

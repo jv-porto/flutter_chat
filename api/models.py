@@ -21,7 +21,7 @@ class User(Base):
     created_at = Column(DateTime())
     last_updated = Column(DateTime())
     is_enabled = Column(Boolean())
-    chat_messages = relationship('ChatMessage', back_populates='user', lazy='joined')
+    chat_messages = relationship('ChatMessage', cascade='all, delete-orphan', back_populates='user', lazy='joined')
 
     def __init__(self, username: str, email: str, password: str, first_name: str, last_name: str, image_url: str | None = None):
         from auth import AuthHandler

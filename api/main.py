@@ -11,8 +11,8 @@ app = FastAPI()
 
 # DB functions
 # drop_db()
-migrate_db()
-populate_db()
+# migrate_db()
+# populate_db()
 
 
 # connecting the routers to the main application
