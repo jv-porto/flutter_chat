@@ -41,3 +41,8 @@ async def auth(login_info: LoginSchema, session: Session = db_session):
 @router.get('/update_token')
 async def refresh_token(updated_credentials=Depends(auth_handler.auth_refresh_wrapper)):
     return updated_credentials
+
+
+@router.get('/me')
+async def current_user(auth_user=Depends(auth_handler.auth_access_wrapper)):
+    return auth_user
