@@ -27,7 +27,12 @@ def post_user(user: schemas.UserCreate, session: Session = db_session, auth_user
 
 @router.get('/user/{username}', response_model=schemas.User)
 def get_user(username: str, session: Session = db_session, auth_user=Depends(auth_handler.auth_access_wrapper)):
-    return crud.user.read_user(session=session, username=username)
+    user_info = crud.user.read_user(session=session, username=username)
+    
+    if user_info:
+        return user_info
+    else:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='No user found with this username.')
 
 
 @router.get('/users', response_model=list[schemas.User])

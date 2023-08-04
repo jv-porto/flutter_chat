@@ -18,12 +18,7 @@ def create_user(session: Session, user: schemas.UserCreate) -> models.User:
 
 
 def read_user(session: Session, username: str) -> models.User | None:
-    user_info =  session.query(models.User).get(username)
-    
-    if user_info:
-        return user_info
-    else:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='No user found with this username.')
+    return session.query(models.User).get(username)
 
 
 def read_all_users(session: Session) -> list[models.User]:

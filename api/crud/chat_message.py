@@ -18,12 +18,7 @@ def create_chat_message(session: Session, chat_message: schemas.ChatMessageCreat
 
 
 def read_chat_message(session: Session, id: str) -> models.ChatMessage | None:
-    chat_message_info = session.query(models.ChatMessage).get(id)
-
-    if chat_message_info:
-        return chat_message_info
-    else:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='No chat message found with this id.')    
+    return session.query(models.ChatMessage).get(id)  
 
 
 def read_all_chat_messages(session: Session) -> list[models.ChatMessage]:

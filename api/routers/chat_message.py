@@ -27,7 +27,12 @@ def post_chat_message(chat_message: schemas.ChatMessageCreate, session: Session 
 
 @router.get('/chat_message/{id}', response_model=schemas.ChatMessage)
 def get_chat_message(id: str, session: Session = db_session, auth_user=Depends(auth_handler.auth_access_wrapper)):
-    return crud.chat_message.read_chat_message(session=session, id=id)
+    chat_message_info = crud.chat_message.read_chat_message(session=session, id=id)
+
+    if chat_message_info:
+        return chat_message_info
+    else:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='No chat message found with this id.')  
 
 
 @router.get('/chat_messages', response_model=list[schemas.ChatMessage])
