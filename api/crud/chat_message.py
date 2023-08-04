@@ -67,4 +67,4 @@ def delete_chat_message(session: Session, id: str) -> Response | HTTPException:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred during this process.')
     
     session.commit()
-    return Response(status_code=status.HTTP_200_OK, content='The chat message was deleted.')
+    return Response(status_code=status.HTTP_200_OK, content='{"detail": "The chat message was deleted."}', media_type='application/json')

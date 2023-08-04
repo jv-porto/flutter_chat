@@ -76,4 +76,4 @@ def delete_user(session: Session, username: str) -> Response | HTTPException:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred during this process.')
     
     session.commit()
-    return Response(status_code=status.HTTP_200_OK, content=f'The user was deleted.')
+    return Response(status_code=status.HTTP_200_OK, content='{"detail": "The user was deleted."}', media_type='application/json')
