@@ -1,8 +1,9 @@
 # importing libraries and functions
 import os
 import jwt
+import json
 from datetime import datetime, timedelta
-from fastapi import HTTPException, Security, Depends, status
+from fastapi import HTTPException, Security, Depends, status, WebSocket, WebSocketException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -142,3 +143,35 @@ class AuthHandler():
         updated_credentials = self.encode_update_token(username)
         
         return updated_credentials
+
+
+    ############### AUTHENTICATE USER - WEBSOCKETS ###############
+    def websocket_access_wrapper(self, websocket: WebSocket, session: Session = db_session):
+        token = websocket.headers.get('authorization')[7:]
+
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+            if payload['sub'] != 'access_token':
+                raise jwt.InvalidTokenError()
+            
+            username =  payload['iss']
+        
+        except jwt.ExpiredSignatureError:
+            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason='Signature has expired.')
+        except jwt.InvalidTokenError:
+            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason='Invalid token.')
+        except:
+            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason='Authentication error. Please try again later.')
+
+        if username == None:
+            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason='Unauthorized.')
+        
+        user = crud.user.read_user(session=session, username=username)
+
+        if user == None:
+            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, detail='User not found.')
+        elif not user.is_enabled:
+            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, detail='User is currently unenabled.')
+        
+        return user
