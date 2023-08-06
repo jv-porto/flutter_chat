@@ -146,10 +146,10 @@ class AuthHandler():
 
 
     ############### AUTHENTICATE USER - WEBSOCKETS ###############
-    def websocket_access_wrapper(self, websocket: WebSocket, session: Session = db_session):
+    async def websocket_access_wrapper(self, websocket: WebSocket, session: Session = db_session):
         token = websocket.headers.get('authorization')
-        
-        if not token:
+
+        if (not token) or (len(token) <= 7):
             raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason='Unauthorized.')
         else:
             token = token[7:]
@@ -158,7 +158,7 @@ class AuthHandler():
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
             if payload['sub'] != 'access_token':
-                raise jwt.InvalidTokenError()
+                raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason='Invalid token.')
             
             username =  payload['iss']
         
@@ -180,3 +180,34 @@ class AuthHandler():
             raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, detail='User is currently unenabled.')
         
         return user
+
+
+############### UPDATE USER CREDENTIALS - WEBSOCKETS ###############
+    async def websocket_refresh_wrapper(self, websocket: WebSocket, token: str, session: Session):
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+
+            if payload['sub'] != 'refresh_token':
+                await websocket.send_text('Invalid token.')
+            
+            username = payload['iss']
+        
+        except jwt.ExpiredSignatureError:
+            await websocket.send_text('Signature has expired.')
+        except jwt.InvalidTokenError:
+            await websocket.send_text('Invalid token.')
+        except:
+            await websocket.send_text('Authentication error. Please try again later.')
+        else:
+            if username == None:
+                await websocket.send_text('Unauthorized.')
+            else:
+                user = crud.user.read_user(session=session, username=username)
+
+                if user == None:
+                    await websocket.send_text('User not found.')
+                elif not user.is_enabled:
+                    await websocket.send_text('User is currently unenabled.')
+                else:
+                    updated_credentials = self.encode_update_token(username)
+                    await websocket.send_json(updated_credentials)

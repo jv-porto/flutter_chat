@@ -64,3 +64,12 @@ class User(UserCreate):
 
     class Config:
         from_attributes = True
+
+
+# instantiating the schemas - Login
+class Login(BaseModel):
+    username: str
+    password: str
+
+    class Config:
+        extra = Extra.forbid

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, Extra
 
+import schemas
 import crud.user
 from auth import AuthHandler
 from db import get_session
@@ -15,18 +16,10 @@ db_session = Depends(get_session)
 # instantiating the router
 router = APIRouter()
 
-# login schema
-class LoginSchema(BaseModel):
-    username: str
-    password: str
-
-    class Config:
-        extra = Extra.forbid
-
 
 # instantiating the routes
 @router.post('/login')
-async def auth(login_info: LoginSchema, session: Session = db_session):
+async def auth(login_info: schemas.Login, session: Session = db_session):
     user = crud.user.read_user(session=session, username=login_info.username)
     if user == None:
         raise HTTPException(status_code=401, detail='Incorrect username.')
