@@ -147,7 +147,12 @@ class AuthHandler():
 
     ############### AUTHENTICATE USER - WEBSOCKETS ###############
     def websocket_access_wrapper(self, websocket: WebSocket, session: Session = db_session):
-        token = websocket.headers.get('authorization')[7:]
+        token = websocket.headers.get('authorization')
+        
+        if not token:
+            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason='Unauthorized.')
+        else:
+            token = token[7:]
 
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
