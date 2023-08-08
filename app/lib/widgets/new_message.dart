@@ -1,6 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:chat_app/api.dart';
 import 'package:flutter/material.dart';
+import 'package:rx_shared_preferences/rx_shared_preferences.dart';
+
+final rxPrefs = RxSharedPreferences.getInstance();
+
 
 class NewMessage extends StatefulWidget {
   const NewMessage({super.key});
@@ -30,16 +33,12 @@ class _NewMessageState extends State<NewMessage> {
     FocusScope.of(context).unfocus();
     _messageController.clear();
 
-    final user = FirebaseAuth.instance.currentUser!;
-    final userData = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+    final user = await rxPrefs.getString('username');
 
-    FirebaseFirestore.instance.collection('chat').add({
-      'text': enteredMessage,
-      'createdAt': Timestamp.now(),
-      'userId': user.uid,
-      'username': userData.data()!['username'],
-      'userImage': userData.data()!['image_url'],
-    });
+    await API.chatMessage.post(
+      message: enteredMessage,
+      username: user!,
+    );
   }
 
   @override

@@ -1,7 +1,3 @@
-# Added by me
-ios/Runner/GoogleService-Info.plist
-macos/Runner/GoogleService-Info.plist
-
 # Miscellaneous
 *.class
 *.log

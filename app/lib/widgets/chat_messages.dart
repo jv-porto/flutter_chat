@@ -1,23 +1,50 @@
+import 'dart:convert';
 import 'package:chat_app/widgets/message_bubble.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:rx_shared_preferences/rx_shared_preferences.dart';
+import 'package:web_socket_channel/io.dart';
 
-class ChatMessages extends StatelessWidget {
+final rxPrefs = RxSharedPreferences.getInstance();
+
+class ChatMessages extends StatefulWidget {
   const ChatMessages({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final authenticatedUser = FirebaseAuth.instance.currentUser!;
+  State<ChatMessages> createState() {
+    return _ChatMessagesState();
+  }
+}
 
+class _ChatMessagesState extends State<ChatMessages> {
+  late String? authenticatedUser;
+  late String? accessToken;
+  final _channel = IOWebSocketChannel.connect(Uri.parse('wss://flutter-chat-app.15lb2f1vk1o3.us-south.codeengine.appdomain.cloud/ws/chat_messages'));
+  
+  void authWebsocket() async {
+    authenticatedUser = await rxPrefs.getString('username');
+    accessToken = await rxPrefs.getString('access_token');
+
+    _channel.sink.add(jsonEncode({
+      'access_token': accessToken,
+    }));
+  }
+
+  @override
+  void initState() {
+    authWebsocket();
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _channel.sink.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: FirebaseFirestore.instance
-          .collection('chat')
-          .orderBy(
-            'createdAt',
-            descending: true,
-          )
-          .snapshots(),
+      stream: _channel.stream,
       builder: (ctx, chatSnapshots) {
         if (chatSnapshots.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -25,7 +52,9 @@ class ChatMessages extends StatelessWidget {
           );
         }
 
-        if (!chatSnapshots.hasData || chatSnapshots.data!.docs.isEmpty) {
+        final List<dynamic> loadedMessages = jsonDecode(chatSnapshots.data);
+
+        if (!chatSnapshots.hasData || loadedMessages.isEmpty) {
           return const Center(
             child: Text('No messages found'),
           );
@@ -37,8 +66,6 @@ class ChatMessages extends StatelessWidget {
           );
         }
 
-        final loadedMessages = chatSnapshots.data!.docs;
-
         return ListView.builder(
           padding: const EdgeInsets.only(
             bottom: 40,
@@ -48,27 +75,28 @@ class ChatMessages extends StatelessWidget {
           reverse: true,
           itemCount: loadedMessages.length,
           itemBuilder: (ctx, index) {
-            final chatMessage = loadedMessages[index].data();
+            final chatMessage = loadedMessages[index];
             final nextChatMessage = index + 1 < loadedMessages.length
-                ? loadedMessages[index + 1].data()
+                ? loadedMessages[index + 1]
                 : null;
 
-            final currentMessageUserId = chatMessage['userId'];
-            final nextMessageUserId =
-                nextChatMessage != null ? nextChatMessage['userId'] : null;
-            final nextUserIsSame = nextMessageUserId == currentMessageUserId;
+            final currentMessageUsername = chatMessage['user_username'];
+            final nextMessageUsername = nextChatMessage != null
+                ? nextChatMessage['user_username']
+                : null;
+            final nextUserIsSame = nextMessageUsername == currentMessageUsername;
 
             if (nextUserIsSame) {
               return MessageBubble.next(
                 message: chatMessage['text'],
-                isMe: authenticatedUser.uid == currentMessageUserId,
+                isMe: authenticatedUser == currentMessageUsername,
               );
             } else {
               return MessageBubble.first(
                 userImage: chatMessage['userImage'],
-                username: chatMessage['username'],
+                username: chatMessage['user_username'],
                 message: chatMessage['text'],
-                isMe: authenticatedUser.uid == currentMessageUserId,
+                isMe: authenticatedUser == currentMessageUsername,
               );
             }
           },

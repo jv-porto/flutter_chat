@@ -1,25 +1,30 @@
+import 'package:chat_app/api.dart';
 import 'package:chat_app/screens/auth.dart';
 import 'package:chat_app/screens/chat.dart';
 import 'package:chat_app/screens/splash.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
 import 'package:flutter/material.dart';
+import 'package:rx_shared_preferences/rx_shared_preferences.dart';
+
+final rxPrefs = RxSharedPreferences.getInstance();
+
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform
-  );
-
   runApp(const App());
 }
+
 
 class App extends StatelessWidget {
   const App({super.key});
 
+  void init() async {
+    // await rxPrefs.clear();
+    await API.auth.reauth();
+  }
+
   @override
   Widget build(BuildContext context) {
+    init();
+
     return MaterialApp(
       title: 'FlutterChat',
       theme: ThemeData().copyWith(
@@ -28,7 +33,7 @@ class App extends StatelessWidget {
             seedColor: const Color.fromARGB(255, 63, 17, 177)),
       ),
       home: StreamBuilder(
-        stream: FirebaseAuth.instance.authStateChanges(),
+        stream: rxPrefs.getStringStream('username').asBroadcastStream(),
         builder: (ctx, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const SplashScreen();
@@ -37,7 +42,7 @@ class App extends StatelessWidget {
           if (snapshot.hasData) {
             return const ChatScreen();
           }
-          
+
           return const AuthScreen();
         },
       ),

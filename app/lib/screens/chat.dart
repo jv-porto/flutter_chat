@@ -1,8 +1,10 @@
 import 'package:chat_app/widgets/chat_messages.dart';
 import 'package:chat_app/widgets/new_message.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:rx_shared_preferences/rx_shared_preferences.dart';
+
+final rxPrefs = RxSharedPreferences.getInstance();
+
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -14,20 +16,20 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  void setupPushNotifications() async {
-    final fcm = FirebaseMessaging.instance;
+  // void setupPushNotifications() async {
+  //   final fcm = FirebaseMessaging.instance;
 
-    await fcm.requestPermission();
+  //   await fcm.requestPermission();
 
-    // final token = await fcm.getToken();
-    fcm.subscribeToTopic('chat');
-  }
+  //   // final token = await fcm.getToken();
+  //   fcm.subscribeToTopic('chat');
+  // }
 
-  @override
-  void initState() {
-    super.initState();
-    setupPushNotifications();
-  }
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   setupPushNotifications();
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -36,8 +38,8 @@ class _ChatScreenState extends State<ChatScreen> {
         title: const Text('FlutterChat'),
         actions: [
           IconButton(
-            onPressed: () {
-              FirebaseAuth.instance.signOut();
+            onPressed: () async {
+              rxPrefs.clear();
             },
             icon: Icon(
               Icons.exit_to_app,
