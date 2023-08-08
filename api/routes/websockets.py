@@ -45,6 +45,20 @@ async def websocket_chat_messages(websocket: WebSocket, session: Session = db_se
     else:
         return await websocket.close()
 
+    chat_messages = crud.chat_message.read_all_chat_messages(session=session)
+    chat_messages_list = []
+    for message in chat_messages:
+        message_json = {
+            'id': message.id,
+            'text': message.text,
+            'created_at': message.created_at.isoformat(),
+            'last_updated': message.last_updated.isoformat(),
+            'is_hidden': message.is_hidden,
+            'user_username': message.user_username,
+        }
+        chat_messages_list.append(message_json)
+    await chat_messages_manager.send_json(websocket, chat_messages_list)
+    
     try:
         while True:
             data = await websocket.receive_json()
