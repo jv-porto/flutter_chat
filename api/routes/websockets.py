@@ -33,7 +33,7 @@ def https_websocket_chat_messages():
     return RedirectResponse(f'wss://{API_URI}/ws/chat_messages')
 
 @router.websocket('/chat_messages')
-async def websocket_chat_messages(websocket: WebSocket, session: Session = db_session, auth_user=Depends(auth_handler.websocket_access_wrapper)):
+async def websocket_chat_messages(websocket: WebSocket, session: Session = db_session):#, auth_user=Depends(auth_handler.websocket_access_wrapper)):
     await chat_messages_manager.connect(websocket)
     try:
         while True:
