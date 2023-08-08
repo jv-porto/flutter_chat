@@ -56,7 +56,8 @@ async def websocket_chat_messages(websocket: WebSocket, session: Session = db_se
     
     auth_user = await auth_handler.websocket_access_wrapper(websocket=websocket, token=token, session=session)
     if auth_user:
-        await websocket.send_text('Successfully authorized!')
+        pass
+        # await websocket.send_text('Successfully authorized!')
     else:
         return await websocket.close()
     
