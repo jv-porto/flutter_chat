@@ -32,10 +32,13 @@ async def websocket_chat_messages(websocket: WebSocket, session: Session = db_se
     await chat_messages_manager.connect(websocket)
 
     auth_json = await websocket.receive_json()
+    print(type(auth_json))
+    print(auth_json)
 
     if 'access_token' in auth_json:
         token = auth_json['access_token']
     else:
+        print('11111111111111111')
         await websocket.send_text('Unauthorized.')
         return await websocket.close()
     

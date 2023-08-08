@@ -147,6 +147,8 @@ class AuthHandler():
     ############### AUTHENTICATE USER - WEBSOCKETS ###############
     async def websocket_access_wrapper(self, websocket: WebSocket, token: str, session: Session):
         if not token:
+            print('2222222222222222')
+            print(f'token: {token}')
             return await websocket.send_text('Unauthorized.')
 
         try:
@@ -165,6 +167,7 @@ class AuthHandler():
             return await websocket.send_text('Authentication error. Please try again later.')
 
         if username == None:
+            print('333333333333333')
             return await websocket.send_text('Unauthorized.')
         
         user = crud.user.read_user(session=session, username=username)
