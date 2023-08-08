@@ -1,8 +1,7 @@
 # importing libraries and functions
 import os
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, status, WebSocket, WebSocketDisconnect
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 import schemas
@@ -28,13 +27,24 @@ db_session = Depends(get_session)
 # instantiating websockets
 chat_messages_manager = WebsocketConnectionManager()
 
-@router.get('/chat_messages')
-def https_websocket_chat_messages():
-    return RedirectResponse(f'wss://{API_URI}/ws/chat_messages')
-
 @router.websocket('/chat_messages')
-async def websocket_chat_messages(websocket: WebSocket, session: Session = db_session):#, auth_user=Depends(auth_handler.websocket_access_wrapper)):
+async def websocket_chat_messages(websocket: WebSocket, session: Session = db_session):
     await chat_messages_manager.connect(websocket)
+
+    auth_json = await websocket.receive_json()
+
+    if 'access_token' in auth_json:
+        token = auth_json['access_token']
+    else:
+        await websocket.send_text('Unauthorized.')
+        return await websocket.close()
+    
+    auth_user = await auth_handler.websocket_access_wrapper(websocket=websocket, token=token, session=session)
+    if auth_user:
+        await websocket.send_text('Successfully authorized!')
+    else:
+        return await websocket.close()
+
     try:
         while True:
             data = await websocket.receive_json()
@@ -56,60 +66,3 @@ async def websocket_chat_messages(websocket: WebSocket, session: Session = db_se
 
     except WebSocketDisconnect:
         chat_messages_manager.disconnect(websocket)
-
-
-auth_login_manager = WebsocketConnectionManager()
-
-@router.get('/auth/login')
-def https_websocket_auth_login():
-    return RedirectResponse(f'wss://{API_URI}/ws/auth/login')
-
-@router.websocket('/auth/login')
-async def websocket_auth_login(websocket: WebSocket, session: Session = db_session):
-    await auth_login_manager.connect(websocket)
-    try:
-        while True:
-            data = await websocket.receive_json()
-
-            try:
-                schema = schemas.Login(**data)
-
-                user = crud.user.read_user(session=session, username=schema.username)
-                if user == None:
-                    await auth_login_manager.send_message(websocket, 'Incorrect username.')
-                else:
-                    correct_password = auth_handler.verify_password(schema.password, user.password)
-                    if not correct_password:
-                        await auth_login_manager.send_message(websocket, 'Incorrect password.')
-                    else:
-                        auth_info = auth_handler.encode_login_token(user.username)
-                        await auth_login_manager.send_json(websocket, auth_info)
-
-            except Exception as e:
-                await auth_login_manager.send_message(websocket, str(e))
-
-    except WebSocketDisconnect:
-        auth_login_manager.disconnect(websocket)
-
-
-auth_update_token_manager = WebsocketConnectionManager()
-
-@router.get('/auth/update_token')
-def https_websocket_update_token():
-    return RedirectResponse(f'wss://{API_URI}/ws/auth/update_token')
-
-@router.websocket('/auth/update_token')
-async def websocket_auth_update_token(websocket: WebSocket, session: Session = db_session):
-    await auth_update_token_manager.connect(websocket)
-    try:
-        while True:
-            data = await websocket.receive_text()
-
-            try:
-                await auth_handler.websocket_refresh_wrapper(websocket=websocket, token=data, session=session)
-
-            except Exception as e:
-                await auth_update_token_manager.send_message(websocket, str(e))
-
-    except WebSocketDisconnect:
-        auth_update_token_manager.disconnect(websocket)

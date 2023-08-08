@@ -1,9 +1,8 @@
 # importing libraries and functions
 import os
 import jwt
-import json
 from datetime import datetime, timedelta
-from fastapi import HTTPException, Security, Depends, status, WebSocket, WebSocketException
+from fastapi import HTTPException, Security, Depends, status, WebSocket
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -146,38 +145,34 @@ class AuthHandler():
 
 
     ############### AUTHENTICATE USER - WEBSOCKETS ###############
-    async def websocket_access_wrapper(self, websocket: WebSocket, session: Session = db_session):
-        token = websocket.headers.get('authorization')
-
-        if (not token) or (len(token) <= 7):
-            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason='Unauthorized.')
-        else:
-            token = token[7:]
+    async def websocket_access_wrapper(self, websocket: WebSocket, token: str, session: Session):
+        if not token:
+            return await websocket.send_text('Unauthorized.')
 
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
             if payload['sub'] != 'access_token':
-                raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason='Invalid token.')
+                return await websocket.send_text('Invalid token.')
             
-            username =  payload['iss']
+            username = payload['iss']
         
         except jwt.ExpiredSignatureError:
-            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason='Signature has expired.')
+            return await websocket.send_text('Signature has expired.')
         except jwt.InvalidTokenError:
-            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason='Invalid token.')
+            return await websocket.send_text('Invalid token.')
         except:
-            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason='Authentication error. Please try again later.')
+            return await websocket.send_text('Authentication error. Please try again later.')
 
         if username == None:
-            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, reason='Unauthorized.')
+            return await websocket.send_text('Unauthorized.')
         
         user = crud.user.read_user(session=session, username=username)
 
         if user == None:
-            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, detail='User not found.')
+            return await websocket.send_text('User not found.')
         elif not user.is_enabled:
-            raise WebSocketException(code=status.WS_1008_POLICY_VIOLATION, detail='User is currently unenabled.')
+            return await websocket.send_text('User is currently unenabled.')
         
         return user
 
