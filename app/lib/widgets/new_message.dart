@@ -1,12 +1,15 @@
-import 'package:chat_app/api.dart';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:rx_shared_preferences/rx_shared_preferences.dart';
+import 'package:web_socket_channel/io.dart';
 
 final rxPrefs = RxSharedPreferences.getInstance();
 
 
 class NewMessage extends StatefulWidget {
-  const NewMessage({super.key});
+  const NewMessage({super.key, required this.messagesWebsocket});
+
+  final IOWebSocketChannel messagesWebsocket;
 
   @override
   State<NewMessage> createState() {
@@ -33,12 +36,12 @@ class _NewMessageState extends State<NewMessage> {
     FocusScope.of(context).unfocus();
     _messageController.clear();
 
-    final user = await rxPrefs.getString('username');
+    final username = await rxPrefs.getString('username');
 
-    await API.chatMessage.post(
-      message: enteredMessage,
-      username: user!,
-    );
+    widget.messagesWebsocket.sink.add(jsonEncode({
+      'user_username': username,
+      'text': enteredMessage,
+    }));
   }
 
   @override

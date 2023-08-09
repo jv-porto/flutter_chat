@@ -7,7 +7,9 @@ import 'package:web_socket_channel/io.dart';
 final rxPrefs = RxSharedPreferences.getInstance();
 
 class ChatMessages extends StatefulWidget {
-  const ChatMessages({super.key});
+  const ChatMessages({super.key, required this.messagesWebsocket});
+
+  final IOWebSocketChannel messagesWebsocket;
 
   @override
   State<ChatMessages> createState() {
@@ -17,34 +19,21 @@ class ChatMessages extends StatefulWidget {
 
 class _ChatMessagesState extends State<ChatMessages> {
   late String? authenticatedUser;
-  late String? accessToken;
-  final _channel = IOWebSocketChannel.connect(Uri.parse('wss://flutter-chat-app.15lb2f1vk1o3.us-south.codeengine.appdomain.cloud/ws/chat_messages'));
   
-  void authWebsocket() async {
+  void loadVariables() async {
     authenticatedUser = await rxPrefs.getString('username');
-    accessToken = await rxPrefs.getString('access_token');
-
-    _channel.sink.add(jsonEncode({
-      'access_token': accessToken,
-    }));
   }
 
   @override
   void initState() {
-    authWebsocket();
+    loadVariables();
     super.initState();
-  }
-
-  @override
-  void dispose() {
-    _channel.sink.close();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(
-      stream: _channel.stream,
+      stream: widget.messagesWebsocket.stream,
       builder: (ctx, chatSnapshots) {
         if (chatSnapshots.connectionState == ConnectionState.waiting) {
           return const Center(
